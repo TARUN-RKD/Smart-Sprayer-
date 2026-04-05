@@ -13,7 +13,7 @@ function App() {
   const [selectedDisease, setSelectedDisease] = useState(null);
 
   const containerStyle = {
-    backgroundImage: 'linear-gradient(135deg, rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url(/background-image.webp)',
+    backgroundImage: `linear-gradient(135deg, rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url(${process.env.PUBLIC_URL}/background-image.webp)`,
     backgroundSize: 'cover',
     backgroundPosition: 'center',
     backgroundAttachment: 'fixed',

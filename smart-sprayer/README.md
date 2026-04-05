@@ -65,6 +65,20 @@ The application will be available at:
 - 🔌 Backend API: http://localhost:8000
 - 📚 API Docs: http://localhost:8000/docs
 
+## 🚀 Deploy Frontend On GitHub Pages
+
+This repository now includes a workflow that deploys the React frontend automatically from `main`.
+
+1. Push your latest changes to `main`.
+2. In GitHub, open **Settings → Pages**.
+3. Set **Source** to **GitHub Actions**.
+4. Wait for the workflow **Deploy Frontend To GitHub Pages** to finish.
+5. Your site will be available at `https://tarun-rkd.github.io/Smart-Sprayer-/`.
+
+Notes:
+- Only the `frontend/` app is deployed to Pages.
+- The backend (FastAPI) is not hosted on GitHub Pages. Keep `REACT_APP_API_URL` pointed to a deployed API if you want live API features.
+
 ## 📁 Project Structure
 
 ```
