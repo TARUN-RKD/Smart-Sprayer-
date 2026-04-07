@@ -1,17 +1,19 @@
 import axios from 'axios';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
+const API_BASE_URL = process.env.REACT_APP_API_URL || '';
 
 const apiService = {
   async detectDisease(file) {
     const formData = new FormData();
-    formData.append('file', file);
+    formData.append('image', file);
 
-    const response = await axios.post(`${API_BASE_URL}/detect-disease`, formData, {
+    const response = await axios.post('http://localhost:9000/api/disease', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
     });
+
+    console.log("response.data", response.data)
 
     return response.data;
   },
