@@ -1,9 +1,10 @@
-from app.db.database import SessionLocal, engine, Base
+from app.db.database import SessionLocal, engine, Base, ensure_schema
 from app.models import Plant, Disease, Pesticide
 
 def seed_database():
     # Create tables
     Base.metadata.create_all(bind=engine)
+    ensure_schema()
 
     db = SessionLocal()
 
@@ -52,6 +53,7 @@ def seed_database():
         # Create pesticides
         copper_fungicide = Pesticide(
             name="Copper Fungicide",
+            disease="Late Blight",
             active_ingredient="Copper hydroxide",
             description="Broad-spectrum fungicide effective against many plant diseases",
             application_rate=2.5,
@@ -60,14 +62,35 @@ def seed_database():
 
         chlorothalonil = Pesticide(
             name="Chlorothalonil",
+            disease="Early Blight",
             active_ingredient="Chlorothalonil",
             description="Fungicide for control of fungal diseases",
             application_rate=1.5,
             safety_instructions="Avoid contact with skin and eyes. Use in well-ventilated area."
         )
 
+        mancozeb = Pesticide(
+            name="Mancozeb",
+            disease="Potato Blight",
+            active_ingredient="Mancozeb",
+            description="Protective fungicide used to manage blights and leaf spot diseases",
+            application_rate=2.0,
+            safety_instructions="Wear gloves and a mask. Keep away from water bodies during spraying."
+        )
+
+        brown_rot_mix = Pesticide(
+            name="Brown Rot Guard",
+            disease="Brown Rot",
+            active_ingredient="Captan",
+            description="Fruit rot fungicide suitable for brown rot management in orchard crops",
+            application_rate=1.8,
+            safety_instructions="Avoid inhalation and wash hands after handling."
+        )
+
         db.add(copper_fungicide)
         db.add(chlorothalonil)
+        db.add(mancozeb)
+        db.add(brown_rot_mix)
         db.commit()
 
         # Associate diseases with pesticides
@@ -75,6 +98,7 @@ def seed_database():
         late_blight.pesticides.append(chlorothalonil)
         early_blight.pesticides.append(chlorothalonil)
         potato_blight.pesticides.append(copper_fungicide)
+        potato_blight.pesticides.append(mancozeb)
 
         db.commit()
 

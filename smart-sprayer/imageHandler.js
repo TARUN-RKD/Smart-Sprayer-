@@ -1,65 +1,264 @@
-const express = require('express')
+const express = require('express');
 const app = express();
-const upload = require('./uploadHandler')
-const path  = require('path');
+const upload = require('./uploadHandler');
 const cors = require('cors');
 const fs = require('fs');
 const axios = require('axios');
 
-
-
+app.use(express.json());
 app.use(cors({
-     origin: ["http://localhost:3000"], 
-  methods: ["GET", "POST", "PUT", "DELETE"], 
-    credentials: true,     
-      allowedHeaders: ['Content-Type', 'Authorization']
+  origin: ['http://localhost:3000'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  credentials: true,
+  allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
+const pesticideDatabase = [
+  {
+    id: 1,
+    name: 'Copper Fungicide',
+    disease: 'Late Blight, Potato Blight',
+    active_ingredient: 'Copper hydroxide',
+    description: 'Broad-spectrum fungicide effective against many plant diseases.',
+    application_rate: 2.5,
+    safety_instructions: 'Wear protective clothing. Do not apply when raining.',
+  },
+  {
+    id: 2,
+    name: 'Chlorothalonil',
+    disease: 'Late Blight, Early Blight',
+    active_ingredient: 'Chlorothalonil',
+    description: 'Fungicide for control of fungal diseases.',
+    application_rate: 1.5,
+    safety_instructions: 'Avoid contact with skin and eyes. Use in a well-ventilated area.',
+  },
+  {
+    id: 3,
+    name: 'Mancozeb',
+    disease: 'Potato Blight',
+    active_ingredient: 'Mancozeb',
+    description: 'Protective fungicide commonly used against blight and leaf spot diseases.',
+    application_rate: 2.0,
+    safety_instructions: 'Use gloves, mask, and avoid spraying near water sources.',
+  },
+  {
+    id: 4,
+    name: 'Brown Rot Guard',
+    disease: 'Brown Rot',
+    active_ingredient: 'Captan',
+    description: 'Fungicide used for brown rot control in fruit crops.',
+    application_rate: 1.8,
+    safety_instructions: 'Avoid inhalation and wash hands after handling.',
+  },
+];
 
-app.get('/', (req, res)=>{
-    console.log('route hit')
+const diseaseDatabase = [
+  {
+    id: 1,
+    name: 'Late Blight',
+    plant_name: 'Tomato',
+    description: 'Fungal disease causing dark lesions on leaves and fruits.',
+    symptoms: 'Dark, water-soaked lesions on leaves, white fungal growth on undersides.',
+    pesticideIds: [1, 2],
+  },
+  {
+    id: 2,
+    name: 'Early Blight',
+    plant_name: 'Tomato',
+    description: 'Fungal disease affecting tomato and potato plants.',
+    symptoms: 'Dark spots with concentric rings on leaves.',
+    pesticideIds: [2],
+  },
+  {
+    id: 3,
+    name: 'Potato Blight',
+    plant_name: 'Potato',
+    description: 'Blight disease that affects potato leaves and tubers.',
+    symptoms: 'Dark lesions on leaves, rotting tubers.',
+    pesticideIds: [1, 3],
+  },
+  {
+    id: 4,
+    name: 'Brown Rot',
+    plant_name: 'Stone Fruit',
+    description: 'Fungal fruit disease that causes brown lesions, rot, and rapid fruit decay.',
+    symptoms: 'Brown circular spots on fruit, soft rot, and fuzzy fungal growth in humid conditions.',
+    pesticideIds: [4],
+  },
+];
 
-    return res.json("Hello from server")
-})
+function getSeverity(confidence) {
+  if (confidence >= 0.9) return 'Severe';
+  if (confidence >= 0.75) return 'Moderate';
+  return 'Mild';
+}
 
-app.post('/api/disease', upload.single('image'), async(req, res)=>{
+function normalizePredictionName(payload) {
+  if (!payload) return null;
 
-   
+  if (typeof payload === 'string') return payload;
 
-    
+  const directName = payload.disease_name
+    || payload.disease
+    || payload.label
+    || payload.class
+    || payload.predicted_class
+    || payload.prediction;
 
-         const base64 = fs.readFileSync(req.file.path).toString('base64')
+  if (directName) return String(directName);
 
+  if (Array.isArray(payload.predictions) && payload.predictions.length > 0) {
+    const topPrediction = payload.predictions[0];
+    return normalizePredictionName(topPrediction);
+  }
 
-         axios
-         .post("https://dua41p2tz8.execute-api.eu-north-1.amazonaws.com/predict", {
+  if (Array.isArray(payload) && payload.length > 0) {
+    return normalizePredictionName(payload[0]);
+  }
 
-            inputs: base64
-         })
+  return null;
+}
 
-         .then((response)=>{
+function normalizeConfidence(payload) {
+  if (!payload) return 0;
 
-            console.log(response.data)
+  if (typeof payload.confidence === 'number') return payload.confidence;
+  if (typeof payload.score === 'number') return payload.score;
+  if (typeof payload.probability === 'number') return payload.probability;
 
-            return res.json(response.data)
-         })
-         
+  if (Array.isArray(payload.predictions) && payload.predictions.length > 0) {
+    return normalizeConfidence(payload.predictions[0]);
+  }
 
+  if (Array.isArray(payload) && payload.length > 0) {
+    return normalizeConfidence(payload[0]);
+  }
 
-    
+  return 0.8;
+}
 
+function getRecommendedPesticides(disease) {
+  const normalizedDiseaseName = disease.name.toLowerCase();
 
+  return pesticideDatabase.filter((pesticide) => {
+    const taggedDiseases = String(pesticide.disease || '')
+      .split(',')
+      .map((item) => item.trim().toLowerCase())
+      .filter(Boolean);
 
+    return disease.pesticideIds.includes(pesticide.id) || taggedDiseases.includes(normalizedDiseaseName);
+  });
+}
 
-    console.log("image uyploader hit")
+function buildDetectionResponse(predictionPayload) {
+  const predictedName = normalizePredictionName(predictionPayload);
+  const confidence = normalizeConfidence(predictionPayload);
+  const normalizedPredictedName = String(predictedName || '').trim().toLowerCase();
 
-    
-})
+  const disease = diseaseDatabase.find(
+    (item) => item.name.toLowerCase() === normalizedPredictedName
+      || normalizedPredictedName.includes(item.name.toLowerCase())
+      || item.name.toLowerCase().includes(normalizedPredictedName)
+  );
 
+  if (!disease) {
+    return {
+      disease_id: null,
+      disease_name: predictedName || 'Unknown',
+      confidence,
+      plant_name: null,
+      description: 'Disease details are not available in the local database yet.',
+      symptoms: 'Check the uploaded leaf manually before spraying.',
+      severity: getSeverity(confidence),
+      recommended_pesticides: [],
+      available_pesticides: pesticideDatabase,
+      spray_suggestions: [
+        'Retake the image with better lighting if the prediction looks wrong.',
+        'Review all available pesticides before spraying.',
+        'Confirm the disease manually when confidence is low.',
+      ],
+      raw_prediction: predictionPayload,
+    };
+  }
 
+  const recommendedPesticides = getRecommendedPesticides(disease);
 
-app.listen(9000, ()=>{
+  return {
+    disease_id: disease.id,
+    disease_name: disease.name,
+    confidence,
+    plant_name: disease.plant_name,
+    description: disease.description,
+    symptoms: disease.symptoms,
+    severity: getSeverity(confidence),
+    recommended_pesticides: recommendedPesticides,
+    available_pesticides: pesticideDatabase,
+    spray_suggestions: recommendedPesticides.length > 0
+      ? recommendedPesticides.map(
+          (pesticide) => `Spray ${pesticide.name} at ${pesticide.application_rate} ml/L for ${disease.name}.`
+        )
+      : ['No direct pesticide mapping is stored for this disease.'],
+    raw_prediction: predictionPayload,
+  };
+}
 
-    console.log("server is listening on PORT 9000")
-})
+app.get('/', (req, res) => {
+  res.json('Hello from server');
+});
 
+app.get('/api/pesticides', (req, res) => {
+  res.json(pesticideDatabase);
+});
+
+app.get('/api/pesticides/:id', (req, res) => {
+  const pesticide = pesticideDatabase.find((item) => item.id === Number(req.params.id));
+  if (!pesticide) {
+    return res.status(404).json({ detail: 'Pesticide not found' });
+  }
+  return res.json(pesticide);
+});
+
+app.post('/api/spray', (req, res) => {
+  const pesticide = pesticideDatabase.find((item) => item.id === Number(req.body.pesticide_id));
+  if (!pesticide) {
+    return res.status(404).json({ detail: 'Pesticide not found' });
+  }
+
+  const disease = diseaseDatabase.find((item) => item.id === Number(req.body.disease_id));
+  const message = disease
+    ? `Spray command prepared for ${pesticide.name} against ${disease.name}.`
+    : `Spray command prepared for ${pesticide.name}.`;
+
+  return res.json({
+    success: true,
+    pesticide_name: pesticide.name,
+    disease_name: disease ? disease.name : null,
+    message,
+  });
+});
+
+app.post('/api/disease', upload.single('image'), async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ detail: 'Image upload is required' });
+  }
+
+  try {
+    const base64 = fs.readFileSync(req.file.path).toString('base64');
+    const response = await axios.post(
+      'https://dua41p2tz8.execute-api.eu-north-1.amazonaws.com/predict',
+      { inputs: base64 }
+    );
+
+    return res.json(buildDetectionResponse(response.data));
+  } catch (error) {
+    return res.status(500).json({
+      detail: error.response?.data || error.message || 'Failed to process image',
+    });
+  } finally {
+    fs.unlink(req.file.path, () => {});
+  }
+});
+
+app.listen(9000, () => {
+  console.log('server is listening on PORT 9000');
+});

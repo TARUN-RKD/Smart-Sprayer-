@@ -1,9 +1,9 @@
-import React, { useState, useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import apiService from '../../services/apiService';
 import './ImageUpload.css';
 
-const ImageUpload = ({ onDiseaseDetected, onPesticidesReceived }) => {
+const ImageUpload = ({ onAnalysisComplete }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [preview, setPreview] = useState(null);
   const fileInputRef = useRef(null);
@@ -11,33 +11,27 @@ const ImageUpload = ({ onDiseaseDetected, onPesticidesReceived }) => {
   const handleFileSelect = async (file) => {
     if (!file) return;
 
-    // Preview
     const reader = new FileReader();
-    reader.onload = (e) => setPreview(e.target.result);
+    reader.onload = (event) => setPreview(event.target.result);
     reader.readAsDataURL(file);
 
-    // Upload
     setIsLoading(true);
     try {
       const result = await apiService.detectDisease(file);
-      onDiseaseDetected(result);
-      
-      // Fetch pesticides
-      const pesticides = await apiService.getPesticides();
-      onPesticidesReceived(pesticides);
-      
-      toast.success('Disease detected! Check recommendations.');
+      onAnalysisComplete(result);
+      toast.success('Disease detected. Review the pesticide suggestions.');
     } catch (error) {
-      toast.error('Error detecting disease: ' + error.message);
+      const message = error.response?.data?.detail || error.message;
+      toast.error(`Error detecting disease: ${message}`);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleDragDrop = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const file = e.dataTransfer.files[0];
+  const handleDragDrop = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const file = event.dataTransfer.files[0];
     if (file && file.type.startsWith('image/')) {
       handleFileSelect(file);
     }
@@ -46,25 +40,25 @@ const ImageUpload = ({ onDiseaseDetected, onPesticidesReceived }) => {
   return (
     <div className="image-upload">
       <h3>Upload Plant Image</h3>
-      
+
       <div
         className="upload-area"
         onDrop={handleDragDrop}
-        onDragOver={(e) => e.preventDefault()}
+        onDragOver={(event) => event.preventDefault()}
       >
         {preview ? (
           <img src={preview} alt="Preview" className="preview-image" />
         ) : (
           <div className="upload-placeholder">
-            <p>📸 Drag & drop image here</p>
-            <p>or click to browse</p>
+            <p>Upload a crop photo</p>
+            <p>Drag and drop an image here or click to browse</p>
           </div>
         )}
         <input
           ref={fileInputRef}
           type="file"
           accept="image/*"
-          onChange={(e) => handleFileSelect(e.target.files[0])}
+          onChange={(event) => handleFileSelect(event.target.files[0])}
           style={{ display: 'none' }}
         />
         <button

@@ -15,7 +15,7 @@ filename: function (req, file, cb){
 
     const ext = path.extname(file.originalname)
 
-    cb(null, file.fieldname+'_' + ext)
+    cb(null, `${file.fieldname}_${Date.now()}${ext}`)
 
 
 
