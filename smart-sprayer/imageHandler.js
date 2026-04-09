@@ -43,7 +43,7 @@ const corsOrigins = (process.env.CORS_ORIGINS || 'http://localhost:3000')
   .map((origin) => origin.trim())
   .filter(Boolean);
 
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 app.use(cors({
   origin(origin, callback) {
     if (!origin || corsOrigins.includes(origin)) {
@@ -286,13 +286,25 @@ app.post('/api/disease', upload.single('image'), async (req, res) => {
     const base64 = fs.readFileSync(req.file.path).toString('base64');
     const response = await axios.post(
       ML_API_URL,
-      { inputs: base64 }
+      { inputs: base64 },
+      { timeout: 30000 }
     );
 
     return res.json(buildDetectionResponse(response.data));
   } catch (error) {
+    const upstreamDetail = error.response?.data
+      ? JSON.stringify(error.response.data)
+      : null;
+    const message = upstreamDetail || error.message || 'Failed to process image';
+
+    console.error('Disease detection failed:', {
+      mlApiUrl: ML_API_URL,
+      status: error.response?.status || null,
+      message,
+    });
+
     return res.status(500).json({
-      detail: error.response?.data || error.message || 'Failed to process image',
+      detail: message,
     });
   } finally {
     fs.unlink(req.file.path, () => {});
