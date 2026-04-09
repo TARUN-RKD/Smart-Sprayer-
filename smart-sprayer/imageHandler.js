@@ -3,11 +3,55 @@ const app = express();
 const upload = require('./uploadHandler');
 const cors = require('cors');
 const fs = require('fs');
+const path = require('path');
 const axios = require('axios');
+
+function loadEnvFile() {
+  const envPath = path.join(__dirname, '.env');
+  if (!fs.existsSync(envPath)) {
+    return;
+  }
+
+  const content = fs.readFileSync(envPath, 'utf8');
+  for (const rawLine of content.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith('#')) {
+      continue;
+    }
+
+    const separatorIndex = line.indexOf('=');
+    if (separatorIndex === -1) {
+      continue;
+    }
+
+    const key = line.slice(0, separatorIndex).trim();
+    const value = line.slice(separatorIndex + 1).trim().replace(/^"(.*)"$/, '$1');
+    if (key && process.env[key] === undefined) {
+      process.env[key] = value;
+    }
+  }
+}
+
+loadEnvFile();
+
+const PORT = Number(process.env.PORT || process.env.BACKEND_PORT || 9000);
+const HOST = process.env.HOST || process.env.BACKEND_HOST || '0.0.0.0';
+const ML_API_URL = process.env.ML_API_URL || 'https://dua41p2tz8.execute-api.eu-north-1.amazonaws.com/predict';
+const FRONTEND_BUILD_DIR = path.join(__dirname, 'frontend', 'build');
+const corsOrigins = (process.env.CORS_ORIGINS || 'http://localhost:3000')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
 
 app.use(express.json());
 app.use(cors({
-  origin: ['http://localhost:3000'],
+  origin(origin, callback) {
+    if (!origin || corsOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    return callback(new Error('Not allowed by CORS'));
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   credentials: true,
   allowedHeaders: ['Content-Type', 'Authorization'],
@@ -202,10 +246,6 @@ function buildDetectionResponse(predictionPayload) {
   };
 }
 
-app.get('/', (req, res) => {
-  res.json('Hello from server');
-});
-
 app.get('/api/pesticides', (req, res) => {
   res.json(pesticideDatabase);
 });
@@ -245,7 +285,7 @@ app.post('/api/disease', upload.single('image'), async (req, res) => {
   try {
     const base64 = fs.readFileSync(req.file.path).toString('base64');
     const response = await axios.post(
-      'https://dua41p2tz8.execute-api.eu-north-1.amazonaws.com/predict',
+      ML_API_URL,
       { inputs: base64 }
     );
 
@@ -259,6 +299,22 @@ app.post('/api/disease', upload.single('image'), async (req, res) => {
   }
 });
 
-app.listen(9000, () => {
-  console.log('server is listening on PORT 9000');
+if (fs.existsSync(FRONTEND_BUILD_DIR)) {
+  app.use(express.static(FRONTEND_BUILD_DIR));
+
+  app.get(/^(?!\/api\/).*/, (req, res) => {
+    if (req.path.startsWith('/api/')) {
+      return res.status(404).json({ detail: 'API route not found' });
+    }
+
+    return res.sendFile(path.join(FRONTEND_BUILD_DIR, 'index.html'));
+  });
+} else {
+  app.get('/', (req, res) => {
+    res.json('Smart Sprayer API is running');
+  });
+}
+
+app.listen(PORT, HOST, () => {
+  console.log(`server is listening on ${HOST}:${PORT}`);
 });

@@ -1,7 +1,7 @@
 {
   "name": "smart-sprayer-3d",
   "version": "1.0.0",
-  "homepage": "https://tarun-rkd.github.io/Smart-Sprayer-/",
+  "homepage": ".",
   "private": true,
   "scripts": {
     "start": "react-scripts start",

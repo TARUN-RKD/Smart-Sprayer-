@@ -32,12 +32,6 @@ const ResultsPanel = ({
             <span className="summary-label">AI Confidence</span>
             <span>{(diseaseData.confidence * 100).toFixed(1)}%</span>
           </div>
-          {diseaseData.plant_name && (
-            <div className="summary-row">
-              <span className="summary-label">Plant</span>
-              <span>{diseaseData.plant_name}</span>
-            </div>
-          )}
 
           {/* -------------------------------------------------------------------------------------------------------------------> */}
           {/* <div className="summary-row">
@@ -77,12 +71,6 @@ const ResultsPanel = ({
                   </div>
                   <p className="safety-note">{pesticide.safety_instructions}</p>
                   <div className="pesticide-actions">
-                    <button
-                      className="action-button secondary"
-                      onClick={() => onPesticideSelect(pesticide.id)}
-                    >
-                      Select
-                    </button>
                     <button
                       className="action-button primary"
                       onClick={() => onSpray(pesticide.id)}
