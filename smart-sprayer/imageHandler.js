@@ -40,13 +40,35 @@ const ML_API_URL = process.env.ML_API_URL || 'https://dua41p2tz8.execute-api.eu-
 const FRONTEND_BUILD_DIR = path.join(__dirname, 'frontend', 'build');
 const corsOrigins = (process.env.CORS_ORIGINS || 'http://localhost:3000')
   .split(',')
-  .map((origin) => origin.trim())
+  .map((origin) => origin.trim().replace(/\/+$/, ''))
   .filter(Boolean);
+
+function isAllowedOrigin(origin) {
+  if (!origin) {
+    return true;
+  }
+
+  const normalizedOrigin = origin.replace(/\/+$/, '');
+
+  if (corsOrigins.includes(normalizedOrigin)) {
+    return true;
+  }
+
+  if (/^https:\/\/[a-z0-9-]+\.onrender\.com$/i.test(normalizedOrigin)) {
+    return true;
+  }
+
+  if (/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(normalizedOrigin)) {
+    return true;
+  }
+
+  return false;
+}
 
 app.use(express.json({ limit: '10mb' }));
 app.use(cors({
   origin(origin, callback) {
-    if (!origin || corsOrigins.includes(origin)) {
+    if (isAllowedOrigin(origin)) {
       return callback(null, true);
     }
 
