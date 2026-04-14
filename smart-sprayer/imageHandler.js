@@ -42,6 +42,7 @@ const corsOrigins = (process.env.CORS_ORIGINS || 'http://localhost:3000')
   .split(',')
   .map((origin) => origin.trim().replace(/\/+$/, ''))
   .filter(Boolean);
+let latestDetectionResult = null;
 
 function isAllowedOrigin(origin) {
   if (!origin) {
@@ -268,6 +269,41 @@ function buildDetectionResponse(predictionPayload) {
   };
 }
 
+async function requestDetectionFromMl(imageBuffer, source = 'camera') {
+  const response = await axios.post(
+    ML_API_URL,
+    { inputs: imageBuffer.toString('base64') },
+    { timeout: 30000 }
+  );
+
+  const detectionResponse = buildDetectionResponse(response.data);
+
+  latestDetectionResult = {
+    ...detectionResponse,
+    source,
+    updated_at: new Date().toISOString(),
+  };
+
+  return latestDetectionResult;
+}
+
+function handleDetectionError(error, res) {
+  const upstreamDetail = error.response?.data
+    ? JSON.stringify(error.response.data)
+    : null;
+  const message = upstreamDetail || error.message || 'Failed to process image';
+
+  console.error('Disease detection failed:', {
+    mlApiUrl: ML_API_URL,
+    status: error.response?.status || null,
+    message,
+  });
+
+  return res.status(500).json({
+    detail: message,
+  });
+}
+
 app.get('/api/pesticides', (req, res) => {
   res.json(pesticideDatabase);
 });
@@ -299,38 +335,65 @@ app.post('/api/spray', (req, res) => {
   });
 });
 
-app.post('/api/disease', upload.single('image'), async (req, res) => {
-  if (!req.file) {
+async function handleMultipartDiseaseDetection(req, res) {
+  if (!req.file?.path) {
     return res.status(400).json({ detail: 'Image upload is required' });
   }
 
   try {
-    const base64 = fs.readFileSync(req.file.path).toString('base64');
-    const response = await axios.post(
-      ML_API_URL,
-      { inputs: base64 },
-      { timeout: 30000 }
-    );
-
-    return res.json(buildDetectionResponse(response.data));
+    const imageBuffer = fs.readFileSync(req.file.path);
+    const detectionResult = await requestDetectionFromMl(imageBuffer, 'manual');
+    return res.json(detectionResult);
   } catch (error) {
-    const upstreamDetail = error.response?.data
-      ? JSON.stringify(error.response.data)
-      : null;
-    const message = upstreamDetail || error.message || 'Failed to process image';
-
-    console.error('Disease detection failed:', {
-      mlApiUrl: ML_API_URL,
-      status: error.response?.status || null,
-      message,
-    });
-
-    return res.status(500).json({
-      detail: message,
-    });
+    return handleDetectionError(error, res);
   } finally {
     fs.unlink(req.file.path, () => {});
   }
+}
+
+app.post('/api/disease', upload.single('image'), handleMultipartDiseaseDetection);
+app.post('/api/detect-disease', upload.single('image'), async (req, res) => {
+  const contentType = String(req.headers['content-type'] || '').toLowerCase();
+
+  if (req.file?.path) {
+    return handleMultipartDiseaseDetection(req, res);
+  }
+
+  if (!contentType.includes('image/jpeg')) {
+    return res.status(400).json({
+      detail: 'Expected multipart/form-data with image or raw image/jpeg body',
+    });
+  }
+
+  try {
+    const imageChunks = [];
+
+    req.on('data', (chunk) => imageChunks.push(chunk));
+    req.on('error', (error) => handleDetectionError(error, res));
+    req.on('end', async () => {
+      try {
+        const imageBuffer = Buffer.concat(imageChunks);
+        if (!imageBuffer.length) {
+          return res.status(400).json({ detail: 'Image body is empty' });
+        }
+
+        const detectionResult = await requestDetectionFromMl(imageBuffer, 'camera');
+        return res.json(detectionResult);
+      } catch (error) {
+        return handleDetectionError(error, res);
+      }
+    });
+  } catch (error) {
+    return handleDetectionError(error, res);
+  }
+});
+
+app.get('/api/detection/latest', (req, res) => {
+  if (!latestDetectionResult) {
+    return res.status(404).json({ detail: 'No camera detection result is available yet' });
+  }
+
+  return res.json(latestDetectionResult);
 });
 
 if (fs.existsSync(FRONTEND_BUILD_DIR)) {

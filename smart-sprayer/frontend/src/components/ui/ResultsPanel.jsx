@@ -32,6 +32,18 @@ const ResultsPanel = ({
             <span className="summary-label">AI Confidence</span>
             <span>{(diseaseData.confidence * 100).toFixed(1)}%</span>
           </div>
+          {diseaseData.source && (
+            <div className="summary-row">
+              <span className="summary-label">Input Source</span>
+              <span>{diseaseData.source === 'camera' ? 'ESP32 Camera Auto Upload' : 'Manual Upload'}</span>
+            </div>
+          )}
+          {diseaseData.updated_at && (
+            <div className="summary-row">
+              <span className="summary-label">Last Update</span>
+              <span>{new Date(diseaseData.updated_at).toLocaleString()}</span>
+            </div>
+          )}
 
           {/* -------------------------------------------------------------------------------------------------------------------> */}
           {/* <div className="summary-row">

@@ -19,6 +19,13 @@
   background-clip: text;
 }
 
+.upload-helper-text {
+  margin: -0.25rem 0 0;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
 .upload-area {
   border: 2px dashed rgba(102, 126, 234, 0.4);
   border-radius: 12px;

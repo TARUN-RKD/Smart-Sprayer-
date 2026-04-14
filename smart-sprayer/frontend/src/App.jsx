@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import toast, { Toaster } from 'react-hot-toast';
 import ControlPanel from './components/ui/ControlPanel';
 import ImageUpload from './components/ui/ImageUpload';
@@ -13,10 +13,12 @@ function App() {
   const [selectedPesticideId, setSelectedPesticideId] = useState(null);
   const [isSubmittingSpray, setIsSubmittingSpray] = useState(false);
   const [sprayMessage, setSprayMessage] = useState('');
+  const lastDetectionTimestampRef = useRef(null);
 
   const handleDetectionComplete = (result) => {
     setDiseaseData(result);
     setPesticides(result.available_pesticides || []);
+    lastDetectionTimestampRef.current = result.updated_at || null;
 
     const defaultPesticideId = result.recommended_pesticides?.[0]?.id
       || result.available_pesticides?.[0]?.id
@@ -26,6 +28,38 @@ function App() {
     setIsSprayingEnabled(false);
     setSprayMessage('');
   };
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const pollLatestDetection = async () => {
+      try {
+        const latestResult = await apiService.getLatestDetection();
+        if (!isMounted) {
+          return;
+        }
+
+        if (!latestResult?.updated_at || latestResult.updated_at === lastDetectionTimestampRef.current) {
+          return;
+        }
+
+        handleDetectionComplete(latestResult);
+        toast.success('New camera image analyzed. Results panel updated.');
+      } catch (error) {
+        if (error.response?.status !== 404) {
+          console.error('Unable to fetch latest camera detection:', error);
+        }
+      }
+    };
+
+    pollLatestDetection();
+    const intervalId = window.setInterval(pollLatestDetection, 5000);
+
+    return () => {
+      isMounted = false;
+      window.clearInterval(intervalId);
+    };
+  }, []);
 
   const handleSpray = async (pesticideId = selectedPesticideId) => {
     if (!diseaseData || !pesticideId) {

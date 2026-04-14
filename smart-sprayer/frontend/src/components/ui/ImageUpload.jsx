@@ -40,6 +40,9 @@ const ImageUpload = ({ onAnalysisComplete }) => {
   return (
     <div className="image-upload">
       <h3>Upload Plant Image</h3>
+      <p className="upload-helper-text">
+        Manual upload still works here. ESP32 camera results will also appear automatically when a new image reaches the server.
+      </p>
 
       <div
         className="upload-area"

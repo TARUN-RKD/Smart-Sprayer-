@@ -24,12 +24,17 @@ const apiService = {
     const formData = new FormData();
     formData.append('image', file);
 
-    const response = await axios.post(`${API_BASE_URL}/api/disease`, formData, {
+    const response = await axios.post(`${API_BASE_URL}/api/detect-disease`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
     });
 
+    return response.data;
+  },
+
+  async getLatestDetection() {
+    const response = await axios.get(`${API_BASE_URL}/api/detection/latest`);
     return response.data;
   },
 
