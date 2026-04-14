@@ -33,6 +33,30 @@
   letter-spacing: 0.5px;
 }
 
+.pesticide-select {
+  border: 1px solid rgba(102, 126, 234, 0.3);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  padding: 0.85rem 1rem;
+  font-size: 0.95rem;
+}
+
+.pesticide-select:disabled {
+  opacity: 0.5;
+}
+
+.pesticide-select option {
+  color: #111;
+}
+
+.selected-pesticide-note {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
 .btn {
   padding: 0.75rem 1.5rem;
   border: none;
@@ -128,22 +152,29 @@
   letter-spacing: 0.3px;
 }
 
-.severity-tag.severity-0 {
+.severity-tag.severity-mild {
   background: rgba(76, 175, 80, 0.2);
   color: #4caf50;
   border: 1px solid rgba(76, 175, 80, 0.4);
 }
 
-.severity-tag.severity-1 {
+.severity-tag.severity-moderate {
   background: rgba(255, 152, 0, 0.2);
   color: #ff9800;
   border: 1px solid rgba(255, 152, 0, 0.4);
 }
 
-.severity-tag.severity-2 {
+.severity-tag.severity-severe {
   background: rgba(244, 67, 54, 0.2);
   color: #f44336;
   border: 1px solid rgba(244, 67, 54, 0.4);
+}
+
+.spray-message {
+  margin: 0;
+  color: #d8e2ff;
+  font-size: 0.88rem;
+  line-height: 1.5;
 }
 
 .camera-info {
@@ -159,6 +190,7 @@
   color: rgba(255, 255, 255, 0.8);
   font-size: 0.85rem;
   font-weight: 500;
+  line-height: 1.5;
 }
 
 @media (max-width: 768px) {

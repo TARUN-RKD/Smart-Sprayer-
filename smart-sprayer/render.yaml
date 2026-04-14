@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: smart-sprayer
+    env: node
+    plan: free
+    buildCommand: npm run render-build
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: PORT
+        value: 10000
+      - key: BACKEND_HOST
+        value: 0.0.0.0
+      - key: BACKEND_PORT
+        value: 10000
+      - key: ML_API_URL
+        sync: false
+      - key: CORS_ORIGINS
+        value: https://smart-sprayer.onrender.com
+      - key: REACT_APP_API_URL
+        value: ""

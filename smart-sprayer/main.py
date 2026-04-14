@@ -9,11 +9,12 @@ import os
 import socket
 from app.api.disease_detection import router as disease_router
 from app.api.pesticide_recommendation import router as pesticide_router
-from app.db.database import engine, Base
+from app.db.database import engine, Base, ensure_schema
 from app.models import Plant, Disease, Pesticide
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
+ensure_schema()
 
 app = FastAPI(title="Smart Sprayer", description="Plant disease detection and pesticide recommendation system")
 
@@ -29,8 +30,10 @@ app.add_middleware(
 # Get the directory where this script is located
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# Mount static files
-app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
+# Mount static files when the directory exists.
+static_dir = os.path.join(BASE_DIR, "static")
+if os.path.isdir(static_dir):
+    app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 # Templates
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "app/templates"))

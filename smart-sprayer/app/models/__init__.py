@@ -37,6 +37,7 @@ class Pesticide(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, index=True)
+    disease = Column(String, index=True, nullable=True)
     active_ingredient = Column(String)
     description = Column(Text)
     application_rate = Column(Float)

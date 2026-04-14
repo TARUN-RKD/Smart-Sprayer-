@@ -8,7 +8,7 @@
   min-height: 100px;
   overflow-y: auto;
   flex: 1;
-  max-height:  400px;
+  max-height: 400px;
 }
 
 .results-panel::-webkit-scrollbar {
@@ -34,15 +34,23 @@
   align-items: center;
 }
 
-.results-panel h3 {
-  font-size: 1.2rem;
-  color: #fff;
-  font-weight: 600;
+.results-panel h3,
+.section-title {
   margin: 0;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+}
+
+.results-panel h3 {
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.section-title {
+  font-size: 1rem;
+  font-weight: 600;
 }
 
 .placeholder-text {
@@ -55,10 +63,37 @@
 .results-content {
   display: flex;
   flex-direction: column;
+  gap: 1rem;
+}
+
+.disease-summary-card {
+  background: rgba(102, 126, 234, 0.08);
+  border: 1px solid rgba(102, 126, 234, 0.2);
+  border-radius: 10px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
   gap: 0.75rem;
 }
 
-.pesticide-list {
+.summary-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  color: rgba(255, 255, 255, 0.86);
+  line-height: 1.5;
+}
+
+.summary-label {
+  color: #9fb0ff;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.pesticide-list,
+.suggestion-list {
   list-style: none;
   display: flex;
   flex-direction: column;
@@ -72,9 +107,15 @@
   border: 1px solid rgba(102, 126, 234, 0.2);
   border-left: 3px solid #667eea;
   border-radius: 8px;
-  padding: 0.75rem;
+  padding: 0.85rem;
   transition: all 0.3s ease;
   backdrop-filter: blur(10px);
+}
+
+.pesticide-item.selected {
+  border-color: rgba(90, 220, 168, 0.55);
+  border-left-color: #5adca8;
+  background: rgba(90, 220, 168, 0.12);
 }
 
 .pesticide-item:hover {
@@ -110,11 +151,12 @@
   letter-spacing: 0.3px;
 }
 
-.pesticide-description {
-  color: rgba(255, 255, 255, 0.7);
+.pesticide-description,
+.safety-note {
+  color: rgba(255, 255, 255, 0.75);
   font-size: 0.85rem;
   margin: 0.5rem 0;
-  line-height: 1.4;
+  line-height: 1.45;
 }
 
 .pesticide-details {
@@ -126,18 +168,58 @@
 
 .detail-tag {
   background: rgba(255, 255, 255, 0.05);
-  color: #667eea;
+  color: #c9d4ff;
   padding: 0.3rem 0.6rem;
   border-radius: 4px;
   font-size: 0.8rem;
   border: 1px solid rgba(102, 126, 234, 0.2);
   white-space: nowrap;
-  transition: all 0.2s ease;
 }
 
-.detail-tag:hover {
-  background: rgba(102, 126, 234, 0.15);
-  border-color: rgba(102, 126, 234, 0.4);
+.pesticide-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.85rem;
+  flex-wrap: wrap;
+}
+
+.action-button {
+  border: none;
+  border-radius: 7px;
+  cursor: pointer;
+  padding: 0.65rem 0.9rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.action-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.action-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.action-button.primary {
+  background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
+  color: #fff;
+}
+
+.action-button.secondary {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.suggestion-list li {
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 8px;
+  padding: 0.8rem 0.9rem;
+  color: rgba(255, 255, 255, 0.78);
+  line-height: 1.5;
+  border-left: 3px solid rgba(102, 126, 234, 0.45);
 }
 
 .no-pesticides {
