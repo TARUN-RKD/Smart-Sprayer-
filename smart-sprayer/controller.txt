@@ -1,0 +1,167 @@
+/*********************************************************************
+ *  ESP‑NOW Dual‑Joystick → Single‑Joystick + Button Transmitter
+ *  ---------------------------------------------------------------
+ *  * Joystick X  → LEFT  (if moved left)
+ *  * Joystick Y  → FORWARD / BACK
+ *  * Button (SW) → RIGHT  (press → send RIGHT)
+ *  * STOP       → when joystick in dead‑zone & button released
+ *
+ *  Tested on ESP‑32 (Core 3.x / IDF 5.x)
+ *********************************************************************/
+
+#include <Arduino.h>
+#include <WiFi.h>
+#include <esp_now.h>
+
+
+#define JOY_VRX_PIN   34   
+#define JOY_VRY_PIN   35  
+#define BUTTON_PIN    32   
+
+
+#define DEADZONE          100   // ±100 (≈ 2 % of 12‑bit range) 
+#define NOISE_FILTER       10   
+#define CMD_THRESHOLD      20   
+
+ 
+uint8_t receiverMAC[] = {0x88, 0x57, 0x21, 0xAD, 0xA8, 0xC8};
+
+
+typedef struct {
+  byte xAxisValue;      // |X| 0‑100 (absolute)
+  byte yAxisValue;      // |Y| 0‑100 (absolute)
+  byte zAxisValue;      // बटन फ़्लैग (1 = pressed, 0 = released)
+  char command[10];     // "LEFT","RIGHT","FORWARD","BACK","STOP"
+} PacketData;
+
+PacketData pkt;
+
+
+int centerX = 2048;
+int centerY = 2048;
+
+
+void onDataSent(const wifi_tx_info_t *info, esp_now_send_status_t status) {
+  Serial.print(F("[ESP‑NOW] Send status : "));
+  Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Success" : "Fail");
+}
+
+
+void calibrateJoystick() {
+  long sumX = 0, sumY = 0;
+  Serial.println(F("Calibrating joystick – keep it centered …"));
+  for (int i = 0; i < 200; ++i) {
+    sumX += analogRead(JOY_VRX_PIN);
+    sumY += analogRead(JOY_VRY_PIN);
+    delay(5);
+  }
+  centerX = sumX / 200;
+  centerY = sumY / 200;
+  Serial.print(F("CenterX = ")); Serial.print(centerX);
+  Serial.print(F("   CenterY = ")); Serial.println(centerY);
+}
+
+
+int mapJoystick(int raw, int center) {
+  int diff = raw - center;
+  if (abs(diff) < DEADZONE) return 0;                     
+  if (diff > 0)  
+    return map(diff, DEADZONE, 2047, 0, 100);
+  else          
+    return map(diff, -2047, -DEADZONE, -100, 0);
+}
+
+
+inline void setCommand(const char *c) {
+  strncpy(pkt.command, c, sizeof(pkt.command) - 1);
+  pkt.command[sizeof(pkt.command) - 1] = '\0';
+}
+
+/* ------------------------  SETUP  ------------------------ */
+void setup() {
+  Serial.begin(115200);
+  delay(1000);
+  Serial.println(F("\n=== ESP‑NOW Single‑Joystick + Button Transmitter ==="));
+
+ 
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
+
+ 
+  analogReadResolution(12);
+  analogSetAttenuation(ADC_11db);   
+
+ 
+  WiFi.mode(WIFI_STA);
+  if (esp_now_init() != ESP_OK) {
+    Serial.println(F("❌ ESP‑NOW init failed"));
+    while (true) delay(100);
+  }
+  esp_now_register_send_cb(onDataSent);
+
+ 
+  esp_now_peer_info_t peerInfo = {};
+  memcpy(peerInfo.peer_addr, receiverMAC, 6);
+  peerInfo.channel = 0;          
+  peerInfo.encrypt = false;
+  if (esp_now_add_peer(&peerInfo) != ESP_OK) {
+    Serial.println(F("❌ Failed to add peer"));
+    while (true) delay(100);
+  }
+
+
+  calibrateJoystick();
+
+  Serial.println(F("✅ Transmitter ready – sending packets..."));
+}
+
+
+void loop() {
+
+  int rawX = analogRead(JOY_VRX_PIN);
+  int rawY = analogRead(JOY_VRY_PIN);
+
+  int x = mapJoystick(rawX, centerX);   
+  int y = mapJoystick(rawY, centerY);   
+
+
+  if (abs(x) < NOISE_FILTER) x = 0;
+  if (abs(y) < NOISE_FILTER) y = 0;
+
+
+  bool btnPressed = (digitalRead(BUTTON_PIN) == LOW);
+  pkt.zAxisValue = btnPressed ? 1 : 0;   
+
+ 
+  pkt.xAxisValue = (byte)abs(x);
+  pkt.yAxisValue = (byte)abs(y);
+
+
+  if (btnPressed) {
+    setCommand("RIGHT");
+  } else {
+  
+    int absX = abs(x);
+    int absY = abs(y);
+
+    if (absX > absY) {               
+      if (x < -CMD_THRESHOLD)        setCommand("LEFT");
+      else                           setCommand("STOP");
+    } else {                         
+      if (y > CMD_THRESHOLD)        setCommand("FORWARD");
+      else if (y < -CMD_THRESHOLD)  setCommand("BACK");
+      else                           setCommand("STOP");
+    }
+  }
+
+  Serial.print(F("X=")); Serial.print(x);
+  Serial.print(F("  Y=")); Serial.print(y);
+  Serial.print(F("  BTN=")); Serial.print(btnPressed);
+  Serial.print(F("  CMD=")); Serial.println(pkt.command);
+
+  
+  esp_err_t err = esp_now_send(receiverMAC, (uint8_t *)&pkt, sizeof(pkt));
+  Serial.print(F("Send result : "));
+  Serial.println(err == ESP_OK ? "OK" : "FAIL");
+
+  delay(1000);   
+}
