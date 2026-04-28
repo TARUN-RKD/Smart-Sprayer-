@@ -1,0 +1,142 @@
+#include <WiFi.h>
+#include <esp_now.h>
+#include <WebServer.h>
+
+// ================= WIFI =================
+const char* ssid = "ONEPLUS LUCIFER";
+const char* password = "12345678";
+
+WebServer server(80);
+
+// ================= SPRAY =================
+#define SPRAY_PIN 4
+
+// ================= FRONT L298 =================
+#define F_ENA 32
+#define F_ENB 14
+#define F_IN1 33
+#define F_IN2 25
+#define F_IN3 26
+#define F_IN4 27
+
+// ================= BACK L298 =================
+#define B_ENA 21
+#define B_ENB 13
+#define B_IN1 18
+#define B_IN2 19
+#define B_IN3 23
+#define B_IN4 22
+
+typedef struct PacketData {
+  byte xAxisValue;
+  byte yAxisValue;
+  byte zAxisValue;
+  char command[10];
+} PacketData;
+
+PacketData incomingData;
+
+// ================= MOTOR =================
+void moveForward() {
+  digitalWrite(F_IN1, HIGH); digitalWrite(F_IN2, LOW);
+  digitalWrite(F_IN3, HIGH); digitalWrite(F_IN4, LOW);
+  digitalWrite(B_IN1, LOW); digitalWrite(B_IN2, HIGH);
+  digitalWrite(B_IN3, LOW); digitalWrite(B_IN4, HIGH);
+  analogWrite(F_ENA, 255); analogWrite(F_ENB, 255);
+  analogWrite(B_ENA, 255); analogWrite(B_ENB, 255);
+}
+
+void moveBackward() {
+  digitalWrite(F_IN1, LOW); digitalWrite(F_IN2, HIGH);
+  digitalWrite(F_IN3, LOW); digitalWrite(F_IN4, HIGH);
+  digitalWrite(B_IN1, HIGH); digitalWrite(B_IN2, LOW);
+  digitalWrite(B_IN3, HIGH); digitalWrite(B_IN4, LOW);
+  analogWrite(F_ENA, 255); analogWrite(F_ENB, 255);
+  analogWrite(B_ENA, 255); analogWrite(B_ENB, 255);
+}
+
+void turnLeft() {
+  digitalWrite(F_IN1, LOW); digitalWrite(F_IN2, HIGH);
+  digitalWrite(F_IN3, HIGH); digitalWrite(F_IN4, LOW);
+  digitalWrite(B_IN1, HIGH); digitalWrite(B_IN2, LOW);
+  digitalWrite(B_IN3, LOW); digitalWrite(B_IN4, HIGH);
+}
+
+void turnRight() {
+  digitalWrite(F_IN1, HIGH); digitalWrite(F_IN2, LOW);
+  digitalWrite(F_IN3, LOW); digitalWrite(F_IN4, HIGH);
+  digitalWrite(B_IN1, LOW); digitalWrite(B_IN2, HIGH);
+  digitalWrite(B_IN3, HIGH); digitalWrite(B_IN4, LOW);
+}
+
+void stopMotors() {
+  digitalWrite(F_IN1, LOW); digitalWrite(F_IN2, LOW);
+  digitalWrite(F_IN3, LOW); digitalWrite(F_IN4, LOW);
+  digitalWrite(B_IN1, LOW); digitalWrite(B_IN2, LOW);
+  digitalWrite(B_IN3, LOW); digitalWrite(B_IN4, LOW);
+}
+
+// ================= SPRAY =================
+void spray(int t = 3000) {
+  digitalWrite(SPRAY_PIN, HIGH);
+  delay(t);
+  digitalWrite(SPRAY_PIN, LOW);
+}
+
+// ================= ESP-NOW =================
+void onDataRecv(const esp_now_recv_info_t *recv_info, const uint8_t *incomingDataBytes, int len) {
+  memcpy(&incomingData, incomingDataBytes, sizeof(incomingData));
+
+  if (strcmp(incomingData.command, "FORWARD") == 0) moveForward();
+  else if (strcmp(incomingData.command, "BACK") == 0) moveBackward();
+  else if (strcmp(incomingData.command, "LEFT") == 0) turnLeft();
+  else if (strcmp(incomingData.command, "RIGHT") == 0) turnRight();
+  else stopMotors();
+}
+
+// ================= SETUP =================
+void setup() {
+  Serial.begin(115200);
+
+  pinMode(F_ENA, OUTPUT); pinMode(F_ENB, OUTPUT);
+  pinMode(F_IN1, OUTPUT); pinMode(F_IN2, OUTPUT);
+  pinMode(F_IN3, OUTPUT); pinMode(F_IN4, OUTPUT);
+
+  pinMode(B_ENA, OUTPUT); pinMode(B_ENB, OUTPUT);
+  pinMode(B_IN1, OUTPUT); pinMode(B_IN2, OUTPUT);
+  pinMode(B_IN3, OUTPUT); pinMode(B_IN4, OUTPUT);
+
+  pinMode(SPRAY_PIN, OUTPUT);
+  digitalWrite(SPRAY_PIN, LOW);
+
+  stopMotors();
+
+  // 🔥 CONNECT TO HOTSPOT
+  WiFi.begin(ssid, password);
+  Serial.print("Connecting...");
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+
+  Serial.println("\nCAR IP:");
+  Serial.println(WiFi.localIP());
+
+  // HTTP control
+  server.on("/forward", [](){ moveForward(); server.send(200,"text","OK"); });
+  server.on("/back", [](){ moveBackward(); server.send(200,"text","OK"); });
+  server.on("/left", [](){ turnLeft(); server.send(200,"text","OK"); });
+  server.on("/right", [](){ turnRight(); server.send(200,"text","OK"); });
+  server.on("/stop", [](){ stopMotors(); server.send(200,"text","OK"); });
+  server.on("/spray", [](){ spray(); server.send(200,"text","SPRAY"); });
+
+  server.begin();
+
+  WiFi.mode(WIFI_STA);
+  esp_now_init();
+  esp_now_register_recv_cb(onDataRecv);
+}
+
+void loop() {
+  server.handleClient();
+}
